@@ -1,0 +1,115 @@
+---
+title: 2020 Andan
+output: 
+  html_document:
+    df_print: paged
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message=FALSE, echo=FALSE, warning=FALSE, fig.width=12)
+```
+
+
+## {.tabset .tabset-fade .tabset-pills}
+
+### планы
+
+```{r}
+library(tidyverse)
+library(lubridate)
+readxl::read_xlsx("2020_timetable_andan.xlsx") %>% 
+  mutate(start = dmy_hm(start),
+         end = dmy_hm(end),
+         group = factor(group, c("start","medium" , "advanced",  "all", "official"))) ->
+  df
+
+if(sum(is.na(df$import)) > 0){
+  map_chr(df$import[!is.na(df$import)], function(x){
+    readxl::read_xlsx("2020_timetable_andan.xlsx", sheet = x) %>% 
+      filter(autobus) %>% 
+      mutate(display = str_c(first_name, " ", last_name, " ", status)) %>% 
+      select(display) %>% 
+      unlist() %>% 
+      str_c(collapse = "<br>")
+  }) ->
+    lists
+}
+
+df %>% 
+  filter(!is.na(import)) %>% 
+  mutate(lists = lists) %>% 
+  select(id, lists) %>% 
+  full_join(df) ->
+  df
+
+df %>% 
+  filter(is.na(to_schedule)) %>% 
+  mutate(content = ifelse(is.na(lists),
+                          content,
+                          str_c(content, 
+                                "<br><details><br>", 
+                                lists,
+                                "<br></details>")),
+         content = ifelse(is.na(status),
+                          content,
+                          str_c(content, 
+                                " ", 
+                                status)))->
+  df_for_timevis
+
+library(timevis)
+timevis(df_for_timevis, groups = data.frame(id = sort(unique(df$group)), content = levels(df$group)))
+```
+
+### расписание {.tabset .tabset-fade .tabset-pills}
+
+#### стартовая
+```{r}
+df %>% 
+  filter(!is.na(to_schedule),
+         group == "start") %>% 
+  select(start, end, content) %>% 
+  mutate(our_day = make_date(year = year(start),
+                                        month = month(start),
+                                        day = day(start)),
+         start = as.character(hm(str_c(hour(start), ":", minute(start)))),
+         start = str_remove(start, " 0S"),
+         end = as.character(hm(str_c(hour(end), ":", minute(end)))),
+         end = str_remove(start, " 0S")) %>% 
+  pivot_wider(names_from = our_day, values_from = content) 
+```
+
+#### средняя
+```{r}
+df %>% 
+  filter(!is.na(to_schedule),
+         group == "medium") %>% 
+  select(start, end, content) %>% 
+  mutate(our_day = make_date(year = year(start),
+                                        month = month(start),
+                                        day = day(start)),
+         start = as.character(hm(str_c(hour(start), ":", minute(start)))),
+         start = str_remove(start, " 0S"),
+         end = as.character(hm(str_c(hour(end), ":", minute(end)))),
+         end = str_remove(start, " 0S")) %>% 
+  pivot_wider(names_from = our_day, values_from = content) 
+```
+
+#### продвинутая
+```{r}
+df %>% 
+  filter(!is.na(to_schedule),
+         group == "advanced") %>% 
+  select(start, end, content) %>% 
+  mutate(our_day = make_date(year = year(start),
+                                        month = month(start),
+                                        day = day(start)),
+         start = as.character(hm(str_c(hour(start), ":", minute(start)))),
+         start = str_remove(start, " 0S"),
+         end = as.character(hm(str_c(hour(end), ":", minute(end)))),
+         end = str_remove(start, " 0S")) %>% 
+  pivot_wider(names_from = our_day, values_from = content) 
+```
+
